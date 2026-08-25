@@ -162,6 +162,17 @@ class AppTest(unittest.TestCase):
         self.assertNotIn("zk-secret-abcdef1234", cfg["zhipu"]["api_key"])
         self.assertIn("****", cfg["zhipu"]["api_key"])
 
+    def test_config_openrouter_roundtrip_and_mask(self):
+        self.client.post("/api/config", json={
+            "provider": "openrouter",
+            "openrouter": {"api_key": "sk-or-v1-abcdef123456", "model": "openai/gpt-4o-mini"},
+        })
+        cfg = self.client.get("/api/config").get_json()
+        self.assertEqual(cfg["provider"], "openrouter")
+        self.assertEqual(cfg["openrouter"]["model"], "openai/gpt-4o-mini")
+        self.assertNotIn("sk-or-v1-abcdef123456", cfg["openrouter"]["api_key"])
+        self.assertIn("****", cfg["openrouter"]["api_key"])
+
     def test_ai_try_with_zhipu_provider_none_fallback(self):
         # provider 为 zhipu 且指向不可达地址时，/api/ai/try 应回退到本地正则而不是报错
         self.client.post("/api/config", json={

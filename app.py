@@ -229,7 +229,7 @@ def download_all():
 
 # ---------------------------------------------------------------- 配置
 
-PROVIDERS = ("ollama", "deepseek", "zhipu")
+PROVIDERS = ("ollama", "deepseek", "zhipu", "openrouter")
 
 
 def _mask_key(key_text: str) -> str:
@@ -241,7 +241,7 @@ def _mask_key(key_text: str) -> str:
 @app.get("/api/config")
 def get_config():
     cfg = load_config()
-    for key in ("deepseek", "zhipu"):
+    for key in ("deepseek", "zhipu", "openrouter"):
         cfg[key]["api_key"] = _mask_key(cfg[key].get("api_key", ""))
     cfg["prompt_default"] = aic.DEFAULT_PROMPT
     return jsonify(cfg)

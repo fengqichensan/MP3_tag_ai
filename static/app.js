@@ -325,6 +325,7 @@ function showGroup() {
   $("#cfg-ollama").classList.toggle("hidden", p !== "ollama");
   $("#cfg-deepseek").classList.toggle("hidden", p !== "deepseek");
   $("#cfg-zhipu").classList.toggle("hidden", p !== "zhipu");
+  $("#cfg-openrouter").classList.toggle("hidden", p !== "openrouter");
 }
 $("#btn-settings").addEventListener("click", async () => {
   const cfg = await api("/api/config");
@@ -337,6 +338,9 @@ $("#btn-settings").addEventListener("click", async () => {
   $("#cfg-zp-url").value = cfg.zhipu.url;
   $("#cfg-zp-key").value = cfg.zhipu.api_key;
   $("#cfg-zp-model").value = cfg.zhipu.model;
+  $("#cfg-or-url").value = cfg.openrouter.url;
+  $("#cfg-or-key").value = cfg.openrouter.api_key;
+  $("#cfg-or-model").value = cfg.openrouter.model;
   $("#cfg-prompt").value = cfg.prompt || "";
   state.defaultPrompt = cfg.prompt_default || "";
   $("#try-filename").value = "01 - My Song.mp3";
@@ -365,6 +369,11 @@ function currentCfg() {
       url: $("#cfg-zp-url").value.trim(),
       model: $("#cfg-zp-model").value.trim(),
       api_key: $("#cfg-zp-key").value.trim(),
+    },
+    openrouter: {
+      url: $("#cfg-or-url").value.trim(),
+      model: $("#cfg-or-model").value.trim(),
+      api_key: $("#cfg-or-key").value.trim(),
     },
   };
 }

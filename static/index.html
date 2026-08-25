@@ -67,6 +67,7 @@
           <option value="ollama">Ollama（本机/局域网模型）</option>
           <option value="deepseek">DeepSeek（需要 API Key）</option>
           <option value="zhipu">智谱 GLM（需要 API Key）</option>
+          <option value="openrouter">OpenRouter（聚合各家模型）</option>
           <option value="none">本地正则（离线，无 AI）</option>
         </select>
       </div>
@@ -89,6 +90,19 @@
         <div class="form-row"><label>接口地址</label><input id="cfg-zp-url"></div>
         <div class="form-row"><label>API Key</label><input id="cfg-zp-key" type="password"></div>
         <div class="form-row"><label>模型名称</label><input id="cfg-zp-model"></div>
+      </div>
+
+      <div id="cfg-openrouter" class="cfg-group">
+        <h3>OpenRouter</h3>
+        <div class="form-row"><label>接口地址</label><input id="cfg-or-url"></div>
+        <div class="form-row"><label>API Key</label><input id="cfg-or-key" type="password"></div>
+        <div class="form-row"><label>模型名称</label><input id="cfg-or-model"></div>
+        <div class="hint">
+          模型名格式为「厂商/模型」，如 <code>openai/gpt-4o-mini</code>、
+          <code>anthropic/claude-3.5-haiku</code>、<code>google/gemini-2.0-flash-001</code>、
+          <code>deepseek/deepseek-chat</code>。API Key 在
+          <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai</a> 获取。
+        </div>
       </div>
 
       <div class="cfg-group">

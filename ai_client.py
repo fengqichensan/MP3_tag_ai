@@ -1,10 +1,11 @@
 """AI 从文件名提取 曲目号(Track) 和 标题(Title)。
 
-支持四种来源:
-  - ollama   : 通过 Ollama /api/chat 调用本地/远程模型
-  - deepseek : DeepSeek OpenAI 兼容接口 /chat/completions
-  - zhipu    : 智谱 AI（GLM）OpenAI 兼容接口 /chat/completions
-  - none     : 纯本地正则推测（AI 不可用时兜底）
+支持五种来源:
+  - ollama     : 通过 Ollama /api/chat 调用本地/远程模型
+  - deepseek   : DeepSeek OpenAI 兼容接口 /chat/completions
+  - zhipu      : 智谱 AI（GLM）OpenAI 兼容接口 /chat/completions
+  - openrouter : OpenRouter（聚合各家模型）OpenAI 兼容接口 /chat/completions
+  - none       : 纯本地正则推测（AI 不可用时兜底）
 
 AI 调用失败或返回非 JSON 时，自动回退到本地正则推测。
 """
@@ -19,7 +20,7 @@ from typing import Dict, Optional
 import requests
 
 DEFAULT_CONFIG: Dict = {
-    "provider": "ollama",  # ollama | deepseek | zhipu | none
+    "provider": "ollama",  # ollama | deepseek | zhipu | openrouter | none
     "prompt": "",          # 用户自定义提取提示词，空 = 使用内置默认提示词
     "ollama": {
         "url": "http://192.168.2.166:11434",
@@ -33,6 +34,11 @@ DEFAULT_CONFIG: Dict = {
     "zhipu": {
         "url": "https://open.bigmodel.cn/api/paas/v4",
         "model": "glm-4-flash",
+        "api_key": "",
+    },
+    "openrouter": {
+        "url": "https://openrouter.ai/api/v1",
+        "model": "openai/gpt-4o-mini",
         "api_key": "",
     },
 }
@@ -158,7 +164,7 @@ def extract(filename: str, config: Optional[Dict] = None) -> Extracted:
     provider = (config.get("provider") or "none").lower()
 
     result = Extracted()
-    if provider in ("ollama", "deepseek", "zhipu"):
+    if provider in ("ollama", "deepseek", "zhipu", "openrouter"):
         prompt = build_prompt(config.get("prompt", ""), filename)
         try:
             if provider == "ollama":
@@ -180,6 +186,23 @@ def extract(filename: str, config: Optional[Dict] = None) -> Extracted:
     result.title = guess["title"]
     result.source = "fallback"
     return result
+
+
+def _ping_openai_compatible(cfg: Dict, label: str) -> Dict:
+    """用一次 max_tokens=1 的最小补全请求验证 OpenAI 兼容端点的地址/key/model。"""
+    url = cfg["url"].rstrip("/") + "/chat/completions"
+    resp = requests.post(
+        url,
+        json={
+            "model": cfg["model"],
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        },
+        headers={"Authorization": f"Bearer {cfg.get('api_key', '')}"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return {"ok": True, "message": f"{label} API 连接成功"}
 
 
 def test_connection(config: Optional[Dict] = None) -> Dict:
@@ -213,19 +236,9 @@ def test_connection(config: Optional[Dict] = None) -> Dict:
             resp.raise_for_status()
             return {"ok": True, "message": "DeepSeek API 连接成功"}
         if provider == "zhipu":
-            url = config["zhipu"]["url"].rstrip("/") + "/chat/completions"
-            resp = requests.post(
-                url,
-                json={
-                    "model": config["zhipu"]["model"],
-                    "messages": [{"role": "user", "content": "ping"}],
-                    "max_tokens": 1,
-                },
-                headers={"Authorization": f"Bearer {config['zhipu'].get('api_key', '')}"},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            return {"ok": True, "message": "智谱 AI API 连接成功"}
+            return _ping_openai_compatible(config["zhipu"], "智谱 AI")
+        if provider == "openrouter":
+            return _ping_openai_compatible(config["openrouter"], "OpenRouter")
     except Exception as exc:
         return {"ok": False, "message": f"连接失败: {exc}"}
 
