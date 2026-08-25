@@ -16,7 +16,11 @@ COPY static/ static/
 
 ENV HOST=0.0.0.0 \
     PORT=5000 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    ENABLE_HTTPS=1 \
+    CERT_DIR=/app/certs \
+    TLS_CERTFILE=/app/certs/cert.pem \
+    TLS_KEYFILE=/app/certs/key.pem
 
 EXPOSE 5000
 

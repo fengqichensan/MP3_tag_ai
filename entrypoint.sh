@@ -15,8 +15,7 @@ if [ "${ENABLE_HTTPS:-1}" = "1" ]; then
       -addext "subjectAltName=${CERT_SAN:-DNS:localhost, IP:192.168.2.155}"
     chmod 600 "$CERT_DIR/key.pem" "$CERT_DIR/cert.pem"
   fi
-  export TLS_CERTFILE="$CERT_DIR/cert.pem"
-  export TLS_KEYFILE="$CERT_DIR/key.pem"
 fi
+# TLS_CERTFILE / TLS_KEYFILE 由镜像 ENV 提供（健康检查也依赖它们判断协议）
 
 exec python app.py
