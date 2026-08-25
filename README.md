@@ -3,7 +3,8 @@
 一个带 Web UI 的 Python 工具，批量读取 / 编辑 MP3 的 ID3 元信息：
 
 - **曲目号 (Track / TRCK)**、**标题 (Title / TIT2)**：调用 AI 从文件名自动提取
-  - 支持 **Ollama**（本地/局域网模型）、**DeepSeek**、**智谱 GLM** 和 **OpenRouter**（均为 OpenAI 兼容接口）
+  - 支持 **Ollama**（本地/局域网模型）、**DeepSeek**、**智谱 GLM**、**OpenRouter**
+    和 **New API**（自建 LLM 网关，均为 OpenAI 兼容接口）
   - AI 不可用时自动回退到本地正则推测（如 `01 - Song.mp3` → track=`01`, title=`Song`）
 - **艺术家 (Artist / TPE1)**、**专辑 (Album / TALB)**：手动输入后一键应用到全部行，也可逐格编辑
 - 批量处理：上传多个 MP3 处理完后打包下载；或直接指定服务器目录扫描、原地改写；
@@ -86,6 +87,7 @@ docker compose up -d --build
 | DeepSeek | 填 API Key（[platform.deepseek.com](https://platform.deepseek.com) 获取），模型默认 `deepseek-chat`。 |
 | 智谱 GLM | 填 API Key（[open.bigmodel.cn](https://open.bigmodel.cn) 获取），接口默认 `https://open.bigmodel.cn/api/paas/v4`，模型默认 `glm-4-flash`（免费），也可用 `glm-4-plus` 等。 |
 | OpenRouter | 一个 Key 聚合各家模型。填 API Key（[openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) 获取），接口默认 `https://openrouter.ai/api/v1`，模型名格式「厂商/模型」，如 `openai/gpt-4o-mini`、`anthropic/claude-3.5-haiku`、`google/gemini-2.0-flash-001`、`deepseek/deepseek-chat`。 |
+| New API | 自建的 [New API](https://github.com/QuantumNous/new-api) LLM 网关（One API 分支），多渠道统一转发。接口地址填网关的 OpenAI 兼容根路径（默认部署为 `http://网关IP:3000/v1`）；API Key 用「令牌」页生成的 `sk-…`；模型名填渠道里配置的任意模型。 |
 | 本地正则 | 离线模式，无 AI，仅用文件名规则推测，永不出错。 |
 
 **提取提示词可以完全自定义**：设置弹窗里「提取提示词（AI Prompt）」文本框，把 AI 的判断规则换成任何你想要的写法：
@@ -116,7 +118,7 @@ mock 网络调用与失败回退、全部 HTTP 接口（上传/扫描/AI 任务/
 
 ```
 app.py               Flask 后端（接口 + AI 任务调度 + TLS 启动）
-ai_client.py         Ollama / DeepSeek / 智谱 / OpenRouter / 本地正则 + 解析与回退
+ai_client.py         Ollama / DeepSeek / 智谱 / OpenRouter / New API / 本地正则 + 解析与回退
 tag_editor.py        mutagen 读写 ID3（track/title/artist/album）
 static/              前端页面（表单、表格、拖拽上传、设置弹窗、id3.js 浏览器端标签读写）
 tests/               unittest 测试

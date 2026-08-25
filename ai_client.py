@@ -1,10 +1,11 @@
 """AI 从文件名提取 曲目号(Track) 和 标题(Title)。
 
-支持五种来源:
+支持六种来源:
   - ollama     : 通过 Ollama /api/chat 调用本地/远程模型
   - deepseek   : DeepSeek OpenAI 兼容接口 /chat/completions
   - zhipu      : 智谱 AI（GLM）OpenAI 兼容接口 /chat/completions
   - openrouter : OpenRouter（聚合各家模型）OpenAI 兼容接口 /chat/completions
+  - newapi     : New API（自建 LLM 网关，One API 分支）OpenAI 兼容接口 /chat/completions
   - none       : 纯本地正则推测（AI 不可用时兜底）
 
 AI 调用失败或返回非 JSON 时，自动回退到本地正则推测。
@@ -20,7 +21,7 @@ from typing import Dict, Optional
 import requests
 
 DEFAULT_CONFIG: Dict = {
-    "provider": "ollama",  # ollama | deepseek | zhipu | openrouter | none
+    "provider": "ollama",  # ollama | deepseek | zhipu | openrouter | newapi | none
     "prompt": "",          # 用户自定义提取提示词，空 = 使用内置默认提示词
     "ollama": {
         "url": "http://192.168.2.166:11434",
@@ -39,6 +40,13 @@ DEFAULT_CONFIG: Dict = {
     "openrouter": {
         "url": "https://openrouter.ai/api/v1",
         "model": "openai/gpt-4o-mini",
+        "api_key": "",
+    },
+    # New API (https://github.com/QuantumNous/new-api): 自建 LLM 网关，
+    # 默认端口 3000，OpenAI 兼容地址为 http://<host>:3000/v1，令牌在「渠道/令牌」页生成
+    "newapi": {
+        "url": "http://127.0.0.1:3000/v1",
+        "model": "gpt-4o-mini",
         "api_key": "",
     },
 }
@@ -164,7 +172,7 @@ def extract(filename: str, config: Optional[Dict] = None) -> Extracted:
     provider = (config.get("provider") or "none").lower()
 
     result = Extracted()
-    if provider in ("ollama", "deepseek", "zhipu", "openrouter"):
+    if provider in ("ollama", "deepseek", "zhipu", "openrouter", "newapi"):
         prompt = build_prompt(config.get("prompt", ""), filename)
         try:
             if provider == "ollama":
@@ -239,6 +247,8 @@ def test_connection(config: Optional[Dict] = None) -> Dict:
             return _ping_openai_compatible(config["zhipu"], "智谱 AI")
         if provider == "openrouter":
             return _ping_openai_compatible(config["openrouter"], "OpenRouter")
+        if provider == "newapi":
+            return _ping_openai_compatible(config["newapi"], "New API")
     except Exception as exc:
         return {"ok": False, "message": f"连接失败: {exc}"}
 

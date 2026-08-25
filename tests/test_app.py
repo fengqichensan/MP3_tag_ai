@@ -197,6 +197,19 @@ class AppTest(unittest.TestCase):
         self.assertNotIn("sk-or-v1-abcdef123456", cfg["openrouter"]["api_key"])
         self.assertIn("****", cfg["openrouter"]["api_key"])
 
+    def test_config_newapi_roundtrip_and_mask(self):
+        self.client.post("/api/config", json={
+            "provider": "newapi",
+            "newapi": {"url": "http://192.168.2.155:3000/v1",
+                       "api_key": "sk-na-token-abcdef123456", "model": "deepseek-chat"},
+        })
+        cfg = self.client.get("/api/config").get_json()
+        self.assertEqual(cfg["provider"], "newapi")
+        self.assertEqual(cfg["newapi"]["url"], "http://192.168.2.155:3000/v1")
+        self.assertEqual(cfg["newapi"]["model"], "deepseek-chat")
+        self.assertNotIn("sk-na-token-abcdef123456", cfg["newapi"]["api_key"])
+        self.assertIn("****", cfg["newapi"]["api_key"])
+
     def test_ai_try_with_zhipu_provider_none_fallback(self):
         # provider 为 zhipu 且指向不可达地址时，/api/ai/try 应回退到本地正则而不是报错
         self.client.post("/api/config", json={

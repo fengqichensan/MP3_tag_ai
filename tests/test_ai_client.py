@@ -207,6 +207,51 @@ class OpenRouterTest(unittest.TestCase):
         self.assertIn("AI 调用失败", r.error)
 
 
+class NewApiTest(unittest.TestCase):
+    """New API（自建 LLM 网关）走 OpenAI 兼容端点。"""
+
+    @patch("ai_client.requests.post")
+    def test_newapi_success(self, mock_post):
+        mock_post.return_value = FakeResp({
+            "choices": [{"message": {"content": '{"track": "3", "title": "晴天"}'}}]
+        })
+        r = aic.extract("x.mp3", {
+            "provider": "newapi",
+            "newapi": {
+                "url": "http://nas:3000/v1",
+                "model": "gpt-4o-mini",
+                "api_key": "sk-newapi-token",
+            },
+        })
+        self.assertEqual((r.track, r.title, r.source), ("3", "晴天", "ai"))
+        # 走 OpenAI 兼容端点: URL、Bearer key、model 都要正确
+        self.assertEqual(mock_post.call_args.args[0],
+                         "http://nas:3000/v1/chat/completions")
+        headers = mock_post.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer sk-newapi-token")
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["model"], "gpt-4o-mini")
+
+    @patch("ai_client.requests.post")
+    def test_newapi_connection(self, mock_post):
+        mock_post.return_value = FakeResp({"choices": [{"message": {"content": "ok"}}]})
+        r = aic.test_connection({
+            "provider": "newapi",
+            "newapi": {"url": "http://nas:3000/v1", "model": "gpt-4o-mini", "api_key": "k"},
+        })
+        self.assertTrue(r["ok"])
+        self.assertIn("New API", r["message"])
+
+    def test_newapi_failure_falls_back(self):
+        with patch("ai_client.requests.post", side_effect=RuntimeError("no network")):
+            r = aic.extract("09 - Fallback.mp3", {
+                "provider": "newapi",
+                "newapi": {"url": "http://127.0.0.1:1", "model": "m", "api_key": "k"},
+            })
+        self.assertEqual((r.track, r.title, r.source), ("09", "Fallback", "fallback"))
+        self.assertIn("AI 调用失败", r.error)
+
+
 class ConnectionTest(unittest.TestCase):
     def test_none_provider(self):
         self.assertTrue(aic.test_connection({"provider": "none"})["ok"])

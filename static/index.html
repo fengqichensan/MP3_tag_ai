@@ -69,6 +69,7 @@
           <option value="deepseek">DeepSeek（需要 API Key）</option>
           <option value="zhipu">智谱 GLM（需要 API Key）</option>
           <option value="openrouter">OpenRouter（聚合各家模型）</option>
+          <option value="newapi">New API（自建 LLM 网关）</option>
           <option value="none">本地正则（离线，无 AI）</option>
         </select>
       </div>
@@ -103,6 +104,20 @@
           <code>anthropic/claude-3.5-haiku</code>、<code>google/gemini-2.0-flash-001</code>、
           <code>deepseek/deepseek-chat</code>。API Key 在
           <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai</a> 获取。
+        </div>
+      </div>
+
+      <div id="cfg-newapi" class="cfg-group">
+        <h3>New API（自建 LLM 网关）</h3>
+        <div class="form-row"><label>接口地址</label><input id="cfg-na-url"></div>
+        <div class="form-row"><label>令牌 API Key</label><input id="cfg-na-key" type="password"></div>
+        <div class="form-row"><label>模型名称</label><input id="cfg-na-model"></div>
+        <div class="hint">
+          <a href="https://github.com/QuantumNous/new-api" target="_blank">New API</a>
+          为自建的 One API 系 LLM 网关。接口地址填网关的 OpenAI 兼容根路径
+          （默认部署为 <code>http://网关IP:3000/v1</code>）；Key 用「令牌」页生成的
+          <code>sk-…</code>；模型名填渠道里配置的任意模型，如
+          <code>gpt-4o-mini</code>、<code>deepseek-chat</code>、<code>gemini-2.0-flash</code>。
         </div>
       </div>
 

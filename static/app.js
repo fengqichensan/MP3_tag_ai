@@ -450,6 +450,7 @@ function showGroup() {
   $("#cfg-deepseek").classList.toggle("hidden", p !== "deepseek");
   $("#cfg-zhipu").classList.toggle("hidden", p !== "zhipu");
   $("#cfg-openrouter").classList.toggle("hidden", p !== "openrouter");
+  $("#cfg-newapi").classList.toggle("hidden", p !== "newapi");
 }
 $("#btn-settings").addEventListener("click", async () => {
   const cfg = await api("/api/config");
@@ -465,6 +466,9 @@ $("#btn-settings").addEventListener("click", async () => {
   $("#cfg-or-url").value = cfg.openrouter.url;
   $("#cfg-or-key").value = cfg.openrouter.api_key;
   $("#cfg-or-model").value = cfg.openrouter.model;
+  $("#cfg-na-url").value = cfg.newapi.url;
+  $("#cfg-na-key").value = cfg.newapi.api_key;
+  $("#cfg-na-model").value = cfg.newapi.model;
   $("#cfg-prompt").value = cfg.prompt || "";
   state.defaultPrompt = cfg.prompt_default || "";
   $("#try-filename").value = "01 - My Song.mp3";
@@ -498,6 +502,11 @@ function currentCfg() {
       url: $("#cfg-or-url").value.trim(),
       model: $("#cfg-or-model").value.trim(),
       api_key: $("#cfg-or-key").value.trim(),
+    },
+    newapi: {
+      url: $("#cfg-na-url").value.trim(),
+      model: $("#cfg-na-model").value.trim(),
+      api_key: $("#cfg-na-key").value.trim(),
     },
   };
 }
