@@ -1,0 +1,13 @@
+services:
+  mp3-tag-ai:
+    build: .
+    image: mp3-tag-ai:latest
+    container_name: mp3-tag-ai
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-5000}:5000"
+    volumes:
+      - ./data:/app/data
+      # 可选：把 NAS 上的音乐目录挂进容器，即可用「扫描服务器目录」功能
+      # 直接改写 NAS 上原有的 MP3 文件（去掉注释并改成你的实际路径）：
+      # - /vol1/1000/media/music:/music
