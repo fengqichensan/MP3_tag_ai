@@ -4,7 +4,10 @@
 const state = {
   items: [], // {id, filename, source, track, title, artist, album, statusText, statusCls, dirty}
   aiRunning: false,
+  handles: new Map(), // 直改模式: id -> FileSystemFileHandle（仅存在于浏览器内存中）
 };
+
+const SOURCE_TAGS = { upload: "上传", local: "服务器", localfs: "直改" };
 
 const $ = (sel) => document.querySelector(sel);
 const tbody = $("#tbody");
@@ -37,8 +40,8 @@ function rowTemplate(item) {
   const fn = document.createElement("div");
   fn.className = "fname";
   const tag = document.createElement("span");
-  tag.className = "src-tag";
-  tag.textContent = item.source === "upload" ? "上传" : "本地";
+  tag.className = `src-tag${item.source === "localfs" ? " localfs" : ""}`;
+  tag.textContent = SOURCE_TAGS[item.source] || item.source;
   fn.appendChild(tag);
   fn.appendChild(document.createTextNode(item.filename));
   tdFile.appendChild(fn);
@@ -180,6 +183,76 @@ const dz = $("#dropzone");
 );
 dz.addEventListener("drop", (e) => uploadFiles([...e.dataTransfer.files]));
 
+// ---------------------------------------------------------------- 直改本地文件（File System Access API）
+const FS_SUPPORTED = typeof window.showOpenFilePicker === "function";
+
+function makeLocalId() {
+  return (crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`
+  ).replace(/-/g, "");
+}
+
+async function addLocalFiles() {
+  if (!FS_SUPPORTED) {
+    toast("当前浏览器不支持「直改」模式，请用桌面版 Chrome / Edge；或改用上传模式", 5000);
+    return;
+  }
+  let handles;
+  try {
+    handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [{ description: "MP3 音频", accept: { "audio/mpeg": [".mp3"] } }],
+    });
+  } catch (e) {
+    return; // 用户取消了选择框
+  }
+
+  let added = 0;
+  const failed = [];
+  for (const handle of handles) {
+    if (!handle.name.toLowerCase().endsWith(".mp3")) {
+      failed.push(handle.name);
+      continue;
+    }
+    try {
+      const file = await handle.getFile();
+      let existing = {};
+      let readErr = "";
+      try {
+        existing = ID3Lite.read(await file.arrayBuffer()); // 浏览器本地解析，不经过服务器
+      } catch (ex) {
+        readErr = String(ex.message || ex);
+      }
+      const id = makeLocalId();
+      const item = {
+        id,
+        filename: file.name,
+        source: "localfs",
+        track: existing.track || "",
+        title: existing.title || "",
+        artist: existing.artist || "",
+        album: existing.album || "",
+        statusText: "",
+        statusCls: "",
+        dirty: false,
+      };
+      state.handles.set(id, handle);
+      state.items.push(item);
+      tbody.appendChild(rowTemplate(item));
+      if (readErr) setStatus(id, `读标签失败: ${readErr}`, "err");
+      added++;
+    } catch (e) {
+      failed.push(handle.name);
+    }
+  }
+  refreshEmpty();
+  setStatusbar(`${state.items.length} 个文件`);
+  if (added) toast(`已打开 ${added} 个本地文件，改动将直接写回原文件`);
+  if (failed.length) toast(`已跳过: ${failed.join(", ")}`, 5000);
+}
+$("#btn-local").addEventListener("click", addLocalFiles);
+
 $("#btn-scan").addEventListener("click", async () => {
   const dir = prompt("输入工具所在机器上的目录路径（修改将直接写入原文件）：");
   if (!dir) return;
@@ -199,6 +272,7 @@ $("#btn-scan").addEventListener("click", async () => {
 $("#btn-clear").addEventListener("click", () => {
   if (state.items.length && !confirm(`确定清空 ${state.items.length} 个文件？`)) return;
   state.items = [];
+  state.handles.clear();
   tbody.innerHTML = "";
   refreshEmpty();
   setStatusbar("就绪");
@@ -215,10 +289,13 @@ $("#btn-ai").addEventListener("click", async () => {
   progress.classList.remove("hidden");
 
   try {
+    // 直改模式的行只需文件名即可提取（文件内容不出本机）
     const { job_id } = await api("/api/ai/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: state.items.map((i) => i.id) }),
+      body: JSON.stringify({
+        items: state.items.map((i) => ({ id: i.id, filename: i.filename })),
+      }),
     });
     while (true) {
       const job = await api(`/api/ai/job/${job_id}`);
@@ -273,48 +350,95 @@ $("#btn-apply").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------- 保存/下载
+
+// 直改模式：用 File System Access API 把新字节写回本地原文件。
+// createWritable() 先写临时文件，close() 时原子替换，失败不会损坏原文件。
+async function saveLocalItem(item) {
+  const handle = state.handles.get(item.id);
+  if (!handle) throw new Error("文件句柄已失效，请重新选择该文件");
+  const buf = await (await handle.getFile()).arrayBuffer();
+  const out = ID3Lite.write(buf, {
+    track: item.track.trim(),
+    title: item.title.trim(),
+    artist: item.artist.trim(),
+    album: item.album.trim(),
+  });
+  const writable = await handle.createWritable();
+  await writable.write(out);
+  await writable.close();
+}
+
+function markSaved(item, ok, errText) {
+  if (ok) {
+    item.dirty = false;
+    setStatus(item.id, "✓ 已保存", "ok");
+  } else {
+    setStatus(item.id, `保存失败: ${errText || "?"}`, "err");
+  }
+  for (const f of ["track", "title", "artist", "album"]) {
+    const input = getInput(item.id, f);
+    input?.classList.remove("dirty");
+    if (input && item[f].trim()) input.classList.remove("missing");
+  }
+}
+
 $("#btn-save").addEventListener("click", async () => {
   if (!state.items.length) return toast("列表为空");
   $("#btn-save").disabled = true;
+  const localRows = state.items.filter((i) => i.source === "localfs");
+  const remoteRows = state.items.filter((i) => i.source !== "localfs");
+  let okCount = 0;
+
   try {
-    const payload = {
-      items: state.items.map((i) => ({
-        id: i.id,
-        track: i.track.trim(),
-        title: i.title.trim(),
-        artist: i.artist.trim(),
-        album: i.album.trim(),
-      })),
-    };
-    const data = await api("/api/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const byId = new Map(data.results.map((r) => [r.id, r]));
-    for (const item of state.items) {
-      const r = byId.get(item.id);
-      item.dirty = false;
-      if (r?.ok) {
-        setStatus(item.id, "✓ 已保存", "ok");
-      } else {
-        setStatus(item.id, `保存失败: ${r?.error || "?"}`, "err");
-      }
-      for (const f of ["track", "title", "artist", "album"]) {
-        const input = getInput(item.id, f);
-        input?.classList.remove("dirty");
-        if (input && item[f].trim()) input.classList.remove("missing");
+    // 远端行（上传副本 / 服务器目录）：交给后端 mutagen 写
+    if (remoteRows.length) {
+      try {
+        const payload = {
+          items: remoteRows.map((i) => ({
+            id: i.id,
+            track: i.track.trim(),
+            title: i.title.trim(),
+            artist: i.artist.trim(),
+            album: i.album.trim(),
+          })),
+        };
+        const data = await api("/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const byId = new Map(data.results.map((r) => [r.id, r]));
+        for (const item of remoteRows) {
+          const r = byId.get(item.id);
+          const ok = !!r?.ok;
+          if (ok) okCount++;
+          markSaved(item, ok, r?.error);
+        }
+      } catch (e) {
+        for (const item of remoteRows) markSaved(item, false, e.message);
       }
     }
-    toast(`已保存 ${data.ok_count}/${state.items.length} 个文件`);
-  } catch (e) {
-    toast(e.message, 5000);
+
+    // 直改行：浏览器内直接写回本地原文件
+    for (const item of localRows) {
+      try {
+        await saveLocalItem(item);
+        okCount++;
+        markSaved(item, true);
+      } catch (e) {
+        markSaved(item, false, e.message || e);
+      }
+    }
+
+    toast(`已保存 ${okCount}/${state.items.length} 个文件`);
   } finally {
     $("#btn-save").disabled = false;
   }
 });
 
 $("#btn-zip").addEventListener("click", () => {
+  const uploadCount = state.items.filter((i) => i.source === "upload").length;
+  if (!uploadCount) return toast("没有上传模式的文件可打包（直改模式改动已直接写入原文件）");
   window.open("/api/download_all", "_blank");
 });
 

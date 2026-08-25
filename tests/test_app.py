@@ -98,6 +98,30 @@ class AppTest(unittest.TestCase):
         self.assertEqual(result["track"], "07")
         self.assertEqual(result["title"], "Seventh Son")
 
+    def test_ai_extract_with_client_side_items(self):
+        """直改本地模式：前端直接传 {id, filename}，服务器无需存在对应文件。"""
+        resp = self.client.post("/api/ai/extract", json={"items": [
+            {"id": "abc123", "filename": "05 - Fear of the Dark.mp3"},
+            {"id": "", "filename": "12 - Hallowed Be Thy Name.mp3"},  # 无 id 自动生成
+            {"id": "bad", "filename": ""},                             # 空文件名被忽略
+        ]})
+        job_id = resp.get_json()["job_id"]
+        for _ in range(50):
+            job = self.client.get(f"/api/ai/job/{job_id}").get_json()
+            if job["done"] >= job["total"]:
+                break
+            time.sleep(0.1)
+        self.assertEqual(job["total"], 2)
+        self.assertEqual(job["results"]["abc123"]["track"], "05")
+        self.assertEqual(job["results"]["abc123"]["title"], "Fear of the Dark")
+        auto_id = next(k for k in job["results"] if k != "abc123")
+        self.assertEqual(job["results"][auto_id]["title"], "Hallowed Be Thy Name")
+
+    def test_ai_extract_client_items_empty(self):
+        resp = self.client.post("/api/ai/extract", json={"items": [{"id": "x", "filename": " "}]}
+                                )
+        self.assertEqual(resp.status_code, 400)
+
     def test_scan_and_inplace_save(self):
         folder = self.tmp / "music"
         folder.mkdir(exist_ok=True)

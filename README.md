@@ -6,7 +6,8 @@
   - 支持 **Ollama**（本地/局域网模型）、**DeepSeek**、**智谱 GLM** 和 **OpenRouter**（均为 OpenAI 兼容接口）
   - AI 不可用时自动回退到本地正则推测（如 `01 - Song.mp3` → track=`01`, title=`Song`）
 - **艺术家 (Artist / TPE1)**、**专辑 (Album / TALB)**：手动输入后一键应用到全部行，也可逐格编辑
-- 批量处理：上传多个 MP3 处理完后打包下载；或直接指定服务器目录扫描、原地改写
+- 批量处理：上传多个 MP3 处理完后打包下载；或直接指定服务器目录扫描、原地改写；
+  或用 **「📂 直改本地文件」**（Chrome/Edge）在浏览器里直接读写本机 MP3，文件不上传
 
 技术栈：Flask（后端）+ 原生 JS（前端）+ [mutagen](https://mutagen.readthedocs.io/)（ID3 读写）。
 
@@ -38,6 +39,9 @@ python3 -m venv .venv
 ## 使用流程
 
 1. **添加文件**：拖拽 / 点击上传 `.mp3`（处理的是服务器副本，改完下载）；
+   或点 **📂 直改本地文件**（需桌面版 Chrome / Edge）选择本机 MP3——读取、编辑、保存
+   全部发生在浏览器本地（File System Access API + 内置 `static/id3.js`），改动**直接写回原文件**，
+   文件内容不经过服务器；AI 提取仅把文件名发给后端；
    或点 **扫描服务器目录** 输入工具所在机器上的目录，改动会**直接写回原文件**。
 2. **AI 提取**：点「🤖 AI 提取曲目/标题」，后端并发调用 AI，进度实时刷新到表格
    （AI 失败的行自动采用本地正则推测并提示原因）。
@@ -69,10 +73,12 @@ python3 -m venv .venv
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
+node scripts/test_id3_js.mjs   # id3.js 与 mutagen 的对拍测试（需 Node 18+）
 ```
 
 覆盖：标签读写往返（含中文）、空值删除字段、AI 返回 JSON 解析、正则推测、
-mock 网络调用与失败回退、全部 HTTP 接口（上传/扫描/AI 任务/保存/下载/配置）。
+mock 网络调用与失败回退、全部 HTTP 接口（上传/扫描/AI 任务/保存/下载/配置）、
+浏览器端 ID3 读写器与 mutagen 的双向兼容（v2.2/2.3/2.4/v1、音频字节完整性）。
 
 `scripts/timed_ollama_test.py` 可对真实 Ollama 做一次计时调用。
 
@@ -82,7 +88,7 @@ mock 网络调用与失败回退、全部 HTTP 接口（上传/扫描/AI 任务/
 app.py               Flask 后端（接口 + AI 任务调度）
 ai_client.py         Ollama / DeepSeek / 智谱 / OpenRouter / 本地正则 + 解析与回退
 tag_editor.py        mutagen 读写 ID3（track/title/artist/album）
-static/              前端页面（表单、表格、拖拽上传、设置弹窗）
+static/              前端页面（表单、表格、拖拽上传、设置弹窗、id3.js 浏览器端标签读写）
 tests/               unittest 测试
 data/config.json     运行时生成的配置
 data/uploads/        上传文件的临时副本

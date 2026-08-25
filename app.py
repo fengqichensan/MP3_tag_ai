@@ -128,8 +128,24 @@ def scan():
 @app.post("/api/ai/extract")
 def ai_extract():
     data = request.get_json(silent=True) or {}
-    ids = data.get("ids") or [it["id"] for it in ITEMS.values()]
-    targets = [ITEMS[i] for i in ids if i in ITEMS]
+    # 「直改本地文件」模式：文件在用户浏览器本地，服务器只知道文件名，
+    # 由前端直接传 {id, filename} 列表过来，仅用于 AI 提取，不接触文件内容。
+    client_items = data.get("items")
+    if isinstance(client_items, list) and client_items:
+        targets: list = []
+        seen_ids: set = set()
+        for row in client_items[:1000]:
+            if not isinstance(row, dict):
+                continue
+            cid = str(row.get("id") or uuid.uuid4().hex)
+            fname = str(row.get("filename") or "").strip()
+            if not fname or cid in seen_ids:
+                continue
+            seen_ids.add(cid)
+            targets.append({"id": cid, "filename": fname})
+    else:
+        ids = data.get("ids") or [it["id"] for it in ITEMS.values()]
+        targets = [ITEMS[i] for i in ids if i in ITEMS]
     if not targets:
         return jsonify({"error": "没有可处理的文件"}), 400
 

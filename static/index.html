@@ -16,6 +16,7 @@
     <section class="toolbar">
       <div class="toolbar-row">
         <button id="btn-add" class="btn primary">➕ 添加文件</button>
+        <button id="btn-local" class="btn" title="用 Chrome/Edge 选择本地 MP3，改完直接写回原文件，文件不上传">📂 直改本地文件</button>
         <button id="btn-scan" class="btn">📁 扫描服务器目录</button>
         <button id="btn-clear" class="btn ghost">🗑 清空列表</button>
         <span class="sep"></span>
@@ -137,6 +138,7 @@
   <div id="toast" class="toast hidden"></div>
   <input type="file" id="file-input" accept=".mp3,audio/mpeg" multiple hidden>
 
+  <script src="/static/id3.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
