@@ -6,8 +6,13 @@ services:
     restart: unless-stopped
     ports:
       - "${HOST_PORT:-5000}:5000"
+    environment:
+      ENABLE_HTTPS: "1"            # 设为 0 可退回纯 HTTP（直改本地文件功能将不可用）
+      CERT_DIR: /app/certs         # 证书持久化目录（映射到宿主机 ./certs）
+      CERT_SAN: "DNS:localhost, IP:192.168.2.155"   # NAS IP 变了就改这里并删掉 certs/ 重新生成
     volumes:
       - ./data:/app/data
+      - ./certs:/app/certs
       # 可选：把 NAS 上的音乐目录挂进容器，即可用「扫描服务器目录」功能
       # 直接改写 NAS 上原有的 MP3 文件（去掉注释并改成你的实际路径）：
       # - /vol1/1000/media/music:/music

@@ -324,8 +324,16 @@ def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
-    print(f"MP3 标签批量编辑器: http://{host}:{port}")
-    app.run(host=host, port=port, debug=False, threaded=True)
+    cert = os.environ.get("TLS_CERTFILE", "")
+    key = os.environ.get("TLS_KEYFILE", "")
+    ssl_context = None
+    if cert and key and os.path.isfile(cert) and os.path.isfile(key):
+        ssl_context = (cert, key)
+        print(f"MP3 标签批量编辑器: https://{host}:{port} (自签名证书)")
+    else:
+        print(f"MP3 标签批量编辑器: http://{host}:{port}")
+    app.run(host=host, port=port, debug=False, threaded=True,
+            ssl_context=ssl_context)
 
 
 if __name__ == "__main__":
